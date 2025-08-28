@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Core library for ScreenHistory: schema, migrations, ingest from Apple Screen Time DB, and exports."
 license = "MIT OR Apache-2.0"
-repository = "https://example.com/your/repo"                                                                       # update if/when public
+repository = "https://example.com/your/repo"
 readme = "README.md"
 
 [lib]

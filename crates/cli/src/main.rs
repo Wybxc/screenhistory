@@ -11,8 +11,8 @@ use time::{format_description, Date, OffsetDateTime, Time};
 use screenhistory_core as core;
 
 #[derive(Parser, Debug)]
-#[command(name = "screenhistory-agent")]
-#[command(about = "Headless agent to sync/export Screen Time history", long_about = None)]
+#[command(name = "screenhistory")]
+#[command(about = "Headless CLI to sync/export Screen Time history", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
