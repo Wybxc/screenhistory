@@ -27,7 +27,7 @@ pub async fn export_csv_impl(
 
     // Header aligned with UsageRecord JSON keys for consistency.
     let mut wtr = Writer::from_writer(out);
-    wtr.write_record(&[
+    wtr.write_record([
         "event_id",
         "app_name",
         "amount",
