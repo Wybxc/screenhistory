@@ -1,0 +1,40 @@
+[package]
+name = "screenhistory-agent"
+version = "0.1.0"
+edition = "2021"
+description = "Headless CLI agent that syncs Apple Screen Time data into the local ScreenHistory database and supports exports."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://example.com/your/repo"                                                                                     # update when public
+categories = ["command-line-utilities"]
+keywords = ["screentime", "sqlite", "history", "macos"]
+
+[dependencies]
+# Core library with schema, migrations, ingest and export logic
+screenhistory-core = { path = "../core" }
+
+# CLI args
+clap = { version = "4.5", features = ["derive"] }
+
+# Error handling and logging
+anyhow = "1"
+log = "0.4"
+env_logger = { version = "0.11", default-features = false, features = [
+    "auto-color",
+] }
+
+# Date parsing for CLI filters (e.g., --from/--to)
+time = { version = "0.3", features = ["parsing", "macros"] }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+# Optional: locating user dirs if needed (logs, etc.)
+directories = "5"
+
+[features]
+default = []
+
+[[bin]]
+name = "screenhistory-agent"
+path = "src/main.rs"
