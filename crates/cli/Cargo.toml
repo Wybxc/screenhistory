@@ -5,7 +5,7 @@ edition = "2021"
 description = "Headless CLI to sync/export Apple Screen Time data into a local database."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-repository = "https://example.com/your/repo"                                              # update when public
+repository = "https://github.com/mikkelam/screenhistory"
 categories = ["command-line-utilities"]
 keywords = ["screentime", "sqlite", "history", "macos"]
 

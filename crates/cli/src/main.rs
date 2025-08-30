@@ -92,24 +92,13 @@ struct ScheduleArgs {
 #[derive(Subcommand, Debug)]
 enum ScheduleAction {
     Install(InstallArgs),
-    Uninstall(LabelOnly),
-    Status(LabelOnly),
-    RunNow(LabelOnly),
-}
-
-#[derive(Args, Debug)]
-struct LabelOnly {
-    /// Label of the LaunchAgent
-    #[arg(long)]
-    label: Option<String>,
+    Uninstall,
+    Status,
+    RunNow,
 }
 
 #[derive(Args, Debug)]
 struct InstallArgs {
-    /// LaunchAgent label
-    #[arg(long)]
-    label: Option<String>,
-
     /// Interval like "15m", "1h", or seconds (e.g., "900"). Conflicts with --at.
     #[arg(long, conflicts_with = "at")]
     every: Option<String>,
@@ -138,7 +127,7 @@ struct InstallArgs {
 async fn cmd_schedule(args: ScheduleArgs) -> Result<()> {
     match args.action {
         ScheduleAction::Install(a) => {
-            let label = a.label.unwrap_or_else(|| DEFAULT_LABEL.to_string());
+            let label = DEFAULT_LABEL.to_string();
 
             let (start_interval, start_calendar) = if let Some(every) = a.every.as_deref() {
                 (Some(parse_duration_secs(every)?), None)
@@ -207,8 +196,8 @@ async fn cmd_schedule(args: ScheduleArgs) -> Result<()> {
 
             Ok(())
         }
-        ScheduleAction::Uninstall(o) => {
-            let label = o.label.unwrap_or_else(|| DEFAULT_LABEL.to_string());
+        ScheduleAction::Uninstall => {
+            let label = DEFAULT_LABEL.to_string();
             let uid = get_uid()?;
             // Best-effort bootout
             let _ = run_launchctl(&["bootout", &format!("gui/{uid}/{}", label)]);
@@ -220,13 +209,13 @@ async fn cmd_schedule(args: ScheduleArgs) -> Result<()> {
             eprintln!("Uninstalled LaunchAgent: {}", label);
             Ok(())
         }
-        ScheduleAction::Status(o) => {
-            let label = o.label.unwrap_or_else(|| DEFAULT_LABEL.to_string());
+        ScheduleAction::Status => {
+            let label = DEFAULT_LABEL.to_string();
             let uid = get_uid()?;
             run_launchctl(&["print", &format!("gui/{uid}/{}", label)])
         }
-        ScheduleAction::RunNow(o) => {
-            let label = o.label.unwrap_or_else(|| DEFAULT_LABEL.to_string());
+        ScheduleAction::RunNow => {
+            let label = DEFAULT_LABEL.to_string();
             let uid = get_uid()?;
             run_launchctl(&["kickstart", "-k", &format!("gui/{uid}/{}", label)])
         }
