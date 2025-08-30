@@ -41,64 +41,11 @@ pub async fn open_knowledge_ro(path: &Path) -> Result<SqliteConnection> {
     Ok(conn)
 }
 
-/// Run schema migrations (idempotent) on the local DB.
-/// Uses PRAGMA user_version to track the current schema version.
+/// Run schema migrations using sqlx Migrator from ./migrations.
+/// Idempotent and ordered by migration filenames.
 pub async fn migrate(conn: &mut SqliteConnection) -> Result<()> {
-    let version: i64 = sqlx::query_scalar("PRAGMA user_version")
-        .fetch_one(&mut *conn)
-        .await
-        .context("Reading PRAGMA user_version")?;
-
-    if version == 0 {
-        let mut tx = sqlx::Connection::begin(&mut *conn).await?;
-
-        // Main usage table. Epoch times stored as REAL (seconds).
-        tx.execute(
-            r#"
-            CREATE TABLE IF NOT EXISTS usage (
-                event_id     INTEGER PRIMARY KEY,  -- ZOBJECT.Z_PK from Apple's DB
-                app_name     TEXT NOT NULL,        -- ZOBJECT.ZVALUESTRING
-                amount       REAL NOT NULL,        -- duration seconds
-                start_time   REAL NOT NULL,        -- epoch seconds
-                end_time     REAL NOT NULL,        -- epoch seconds
-                created_at   REAL NOT NULL,        -- epoch seconds
-                tz_offset    INTEGER NOT NULL,     -- seconds from GMT
-                device_id    TEXT NULL,            -- optional device identifier
-                device_model TEXT NOT NULL         -- model string (empty if unknown)
-            );
-            "#,
-        )
-        .await?;
-
-        tx.execute(
-            r#"
-            CREATE INDEX IF NOT EXISTS idx_usage_end_time ON usage(end_time);
-            "#,
-        )
-        .await?;
-
-        tx.execute(
-            r#"
-            CREATE INDEX IF NOT EXISTS idx_usage_app_name ON usage(app_name);
-            "#,
-        )
-        .await?;
-
-        // Generic key-value metadata table for future use.
-        tx.execute(
-            r#"
-            CREATE TABLE IF NOT EXISTS meta (
-                key   TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-            "#,
-        )
-        .await?;
-
-        tx.execute("PRAGMA user_version = 1").await?;
-        tx.commit().await?;
-    }
-
+    static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
+    MIGRATOR.run(conn).await?;
     Ok(())
 }
 
