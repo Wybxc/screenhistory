@@ -2,25 +2,18 @@
 
 Store a permanent local history of your macOS Screen Time data, view or export it on demand, and keep it updated automatically via a launchd job that invokes the CLI.
 
-Goals:
+Features:
 - Persist Screen Time beyond Apple’s ~7-day window
 - Keep it small and unattended (launchd runs the CLI; it exits when done)
 - Allow ad-hoc actions: sync now, export CSV/JSON
 - Avoid a menubar app for now
 
-## What’s included
+## Installation
 
-- crates/core: shared Rust library
-  - Local SQLite schema and migrations
-  - Incremental ingest from Apple’s Screen Time DB (knowledgeC.db)
-  - Export to CSV/JSON
-- crates/cli: headless CLI
-  - `sync` to ingest new events
-  - `export` with filters
-- packaging/launchd: LaunchAgent plist template
+This project uses just. To install to `/user/local/bin/` run `just install`
 
-Local database: `~/.screenhistory.sqlite`
+Note: Reading Apple’s DB requires Full Disk Access (FDA). Grant FDA to the screenhistory CLI binary to successfully sync!
 
-Screen Time (source) DB: `~/Library/Application Support/Knowledge/knowledgeC.db`
+## Include other apple devices screen time
 
-Note: Reading Apple’s DB requires Full Disk Access (FDA). Grant FDA to the screenhistory CLI binary when syncing.
+Open screen time on all devices you wish to sync and check: `Share across devices`. Note that it can take a while for apple to start syncing this data to the internal database. Screenhistory will grab all available data from the internal database.
