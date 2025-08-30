@@ -8,6 +8,27 @@ Features:
 - Allow ad-hoc actions: sync now, export CSV/JSON
 - Avoid a menubar app for now
 
+This CLI completely relies on apple's `~/Library/Application Support/Knowledge/knowledgeC.db`. If apple removes this, the CLI will stop working.
+
+## Usage
+
+```console
+❯ screenhistory --help
+Headless CLI to sync/export Screen Time history
+
+Usage: screenhistory <COMMAND>
+
+Commands:
+  sync      Sync from macOS Screen Time DB into the local history DB
+  export    Export local history to CSV or JSON
+  schedule  Manage launchd scheduling for periodic sync
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+
 ## Installation
 
 This project uses just. To install to `/user/local/bin/` run `just install`
