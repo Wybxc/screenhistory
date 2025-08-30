@@ -21,9 +21,11 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Sync from macOS Screen Time DB into the local history DB
+    #[command(alias = "s")]
     Sync(SyncArgs),
 
     /// Export local history to CSV or JSON
+    #[command(alias = "e")]
     Export(ExportArgs),
 }
 
@@ -36,6 +38,10 @@ struct SyncArgs {
     /// Path to the local history DB (defaults to ~/.screenhistory.sqlite)
     #[arg(long)]
     local_db: Option<PathBuf>,
+
+    /// Verbose output (show source/target paths)
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -105,12 +111,20 @@ async fn cmd_sync(args: SyncArgs) -> Result<()> {
         None => core::default_knowledge_db_path().context("Obtaining default knowledge DB path")?,
     };
 
-    eprintln!("Syncing from {:?} -> {:?}", knowledge_path, db_path);
+    if args.verbose {
+        eprintln!(
+            "🔄 Syncing from {} -> {}",
+            knowledge_path.display(),
+            db_path.display()
+        );
+    } else {
+        eprintln!("🔄 Syncing…");
+    }
 
     match core::sync(Some(&knowledge_path), Some(&db_path)).await {
         Ok(summary) => {
             println!(
-                "Sync complete: scanned={}, inserted={}, skipped={}",
+                "✅ Sync complete: scanned={}, inserted={}, skipped={}",
                 summary.scanned, summary.inserted, summary.skipped
             );
             Ok(())
@@ -119,9 +133,9 @@ async fn cmd_sync(args: SyncArgs) -> Result<()> {
             // Provide a helpful hint if we failed to open Apple's DB (common FDA issue).
             if default_knowledge_path_matches(&knowledge_path) && likely_permission_error(&e) {
                 eprintln!();
-                eprintln!("Hint: Full Disk Access may be required to read:");
-                eprintln!("      {:?}", knowledge_path);
-                eprintln!("Grant Full Disk Access to this binary in System Settings > Privacy & Security > Full Disk Access, then retry.");
+                eprintln!("💡 Full Disk Access may be required to read:");
+                eprintln!("   {}", knowledge_path.display());
+                eprintln!("   Grant Full Disk Access to this binary in System Settings › Privacy & Security › Full Disk Access, then retry.");
             }
             Err(e)
         }
