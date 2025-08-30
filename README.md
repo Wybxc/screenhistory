@@ -1,40 +1,59 @@
 # screenhistory
 
-Store a permanent local history of your macOS Screen Time data, view or export it on demand, and keep it updated automatically via a launchd job that invokes the CLI.
+Persist your macOS Screen Time history locally and export it on demand. A launchd agent keeps it updated.
 
-Features:
-- Persist Screen Time beyond Apple’s ~7-day window
-- Keep it small and unattended (launchd runs the CLI; it exits when done)
-- Allow ad-hoc actions: sync now, export CSV/JSON
-- Avoid a menubar app for now
+Notes:
+- Requires Full Disk Access (FDA) for the installed binary.
+- Reads Apple’s `~/Library/Application Support/Knowledge/knowledgeC.db`. If Apple removes it, this stops working.
 
-This CLI completely relies on apple's `~/Library/Application Support/Knowledge/knowledgeC.db`. If apple removes this, the CLI will stop working.
+## Quick start
+1) Install: `just install` (installs to `/usr/local/bin/screenhistory`)
+2) Grant FDA to `/usr/local/bin/screenhistory`  
+   System Settings → Privacy & Security → Full Disk Access → + → `/usr/local/bin/screenhistory`
+3) Schedule hourly sync: `screenhistory schedule install`
+4) Check logs: `tail -n 50 ~/Library/Logs/screenhistory/sync.log`
+
+## Install
+- With just:
+  - `just install` (build + install)
+  - `just release` (build only, binary at `target/release/screenhistory`)
+- With cargo:
+  - `cargo install --path crates/cli`
+
+## Scheduling (launchd)
+- Label: `com.mikkelam.screenhistory`
+- Plist: `~/Library/LaunchAgents/com.mikkelam.screenhistory.plist`
+- Logs: `~/Library/Logs/screenhistory/sync.log`
+
+Common:
+- Hourly (default): `screenhistory schedule install`
+- Every N: `screenhistory schedule install --every 15m`
+- Daily at time: `screenhistory schedule install --at 02:00`
+- Run now / status / uninstall:
+  - `screenhistory schedule run-now`
+  - `screenhistory schedule status`
+  - `screenhistory schedule uninstall`
+
+Notes:
+- `--every` and `--at` are mutually exclusive.
+- `--run-at-load` runs once immediately after install.
 
 ## Usage
+- Sync now: `screenhistory sync`
+- Export CSV: `screenhistory export --format csv --out usage.csv`
+- Export JSON: `screenhistory export --format json`
+- Filters: `--from 2025-01-01 --to 2025-01-31 --app "Safari"`
 
-```console
-❯ screenhistory --help
-Headless CLI to sync/export Screen Time history
+## Paths
+- Local DB: `~/.screenhistory.sqlite`
+- Source DB: `~/Library/Application Support/Knowledge/knowledgeC.db`
+- Logs: `~/Library/Logs/screenhistory/sync.log`
 
-Usage: screenhistory <COMMAND>
+## Troubleshooting
+- Status: `launchctl print gui/$(id -u)/com.mikkelam.screenhistory`
+- Kick/run: `launchctl kickstart -k gui/$(id -u)/com.mikkelam.screenhistory`
+- Logs: `tail -n 100 ~/Library/Logs/screenhistory/sync.log`
+- “Operation not permitted” → re-check FDA for `/usr/local/bin/screenhistory`
 
-Commands:
-  sync      Sync from macOS Screen Time DB into the local history DB
-  export    Export local history to CSV or JSON
-  schedule  Manage launchd scheduling for periodic sync
-  help      Print this message or the help of the given subcommand(s)
-
-Options:
-  -h, --help  Print help
-```
-
-
-## Installation
-
-This project uses just. To install to `/user/local/bin/` run `just install`
-
-Note: Reading Apple’s DB requires Full Disk Access (FDA). Grant FDA to the screenhistory CLI binary to successfully sync!
-
-## Include other apple devices screen time
-
-Open screen time on all devices you wish to sync and check: `Share across devices`. Note that it can take a while for apple to start syncing this data to the internal database. Screenhistory will grab all available data from the internal database.
+## Include other Apple devices
+Enable “Share Across Devices” in Screen Time on all devices. It can take time before data appears locally.
