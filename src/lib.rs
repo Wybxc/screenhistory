@@ -64,10 +64,8 @@ pub async fn sync(
     let default_knowledge = paths::default_knowledge_db_path()?;
     let default_local = paths::default_local_db_path()?;
     ingest::sync_impl(
-        knowledge_db_path,
-        local_db_path,
-        &default_knowledge,
-        &default_local,
+        knowledge_db_path.unwrap_or(&default_knowledge),
+        local_db_path.unwrap_or(&default_local),
     )
     .await
 }
@@ -94,7 +92,7 @@ pub async fn export_csv(
     out: &mut dyn Write,
 ) -> Result<()> {
     let default_local = paths::default_local_db_path()?;
-    export::export_csv_impl(local_db_path, filters, &default_local, out).await
+    export::export_csv_impl(local_db_path.unwrap_or(&default_local), filters, out).await
 }
 
 /// Export matching rows as a JSON array to the provided writer.
@@ -108,5 +106,5 @@ pub async fn export_json(
     out: &mut dyn Write,
 ) -> Result<()> {
     let default_local = paths::default_local_db_path()?;
-    export::export_json_impl(local_db_path, filters, &default_local, out).await
+    export::export_json_impl(local_db_path.unwrap_or(&default_local), filters, out).await
 }

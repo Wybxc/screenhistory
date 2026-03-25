@@ -17,24 +17,14 @@ use crate::models::SyncSummary;
 /// Params:
 /// - knowledge_db_path: optional path override for the Knowledge DB; if None, `default_knowledge` is used
 /// - local_db_path: optional path override for the local DB; if None, `default_local` is used
-/// - default_knowledge: default path to the Knowledge DB (typically ~/Library/Application Support/Knowledge/knowledgeC.db)
-/// - default_local: default path to the local DB (typically ~/.screenhistory.sqlite)
-pub async fn sync_impl(
-    knowledge_db_path: Option<&Path>,
-    local_db_path: Option<&Path>,
-    default_knowledge: &Path,
-    default_local: &Path,
-) -> Result<SyncSummary> {
-    let knowledge_path = knowledge_db_path.unwrap_or(default_knowledge);
-    let local_path = local_db_path.unwrap_or(default_local);
-
+pub async fn sync_impl(knowledge_db_path: &Path, local_db_path: &Path) -> Result<SyncSummary> {
     // Open local DB (RW) and apply migrations.
-    let mut local = db::open_local_rw(local_path).await?;
+    let mut local = db::open_local_rw(local_db_path).await?;
     db::migrate(&mut local).await?;
     let last_event_id = db::max_local_event_id(&mut local).await?;
 
     // Open Apple's Knowledge DB (RO).
-    let mut knowledge = db::open_knowledge_ro(knowledge_path).await?;
+    let mut knowledge = db::open_knowledge_ro(knowledge_db_path).await?;
 
     // Base SELECT with explicit REAL casts to avoid INTEGER/REAL decode mismatches.
     let base_select = r#"

@@ -13,16 +13,13 @@ use crate::models::{ExportFilters, UsageRecord};
 ///
 /// - local_db_path: optionally override the default local DB location; if None, use the provided default path
 /// - filters: optional time/app filters
-/// - default_local: default path to the local database (e.g. ~/.screenhistory.sqlite)
 /// - out: writer to stream CSV content into
 pub async fn export_csv_impl(
-    local_db_path: Option<&Path>,
+    local_db_path: &Path,
     filters: &ExportFilters,
-    default_local: &Path,
     out: &mut dyn Write,
 ) -> Result<()> {
-    let local_path = local_db_path.unwrap_or(default_local);
-    let mut conn = db::open_local_ro(local_path).await?;
+    let mut conn = db::open_local_ro(local_db_path).await?;
     let (sql, binds) = build_select(filters);
 
     // Header aligned with UsageRecord JSON keys for consistency.
@@ -71,16 +68,13 @@ pub async fn export_csv_impl(
 ///
 /// - local_db_path: optionally override the default local DB location; if None, use the provided default path
 /// - filters: optional time/app filters
-/// - default_local: default path to the local database (e.g. ~/.screenhistory.sqlite)
 /// - out: writer to stream JSON content into
 pub async fn export_json_impl(
-    local_db_path: Option<&Path>,
+    local_db_path: &Path,
     filters: &ExportFilters,
-    default_local: &Path,
     out: &mut dyn Write,
 ) -> Result<()> {
-    let local_path = local_db_path.unwrap_or(default_local);
-    let mut conn = db::open_local_ro(local_path).await?;
+    let mut conn = db::open_local_ro(local_db_path).await?;
     let (sql, binds) = build_select(filters);
 
     let mut q = sqlx::query_as::<_, LocalUsageRow>(&sql);
