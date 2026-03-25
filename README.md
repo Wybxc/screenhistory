@@ -44,6 +44,18 @@ Notes:
 - Export JSON: `screenhistory export --format json`
 - Filters: `--from 2025-01-01 --to 2025-01-31 --app "Safari"`
 
+## Dev: Sanitized Test Fixture (one-time)
+To keep runtime logic and development/test tooling separate, fixture generation is provided as a standalone script:
+
+- Generate once from a local Knowledge DB file (for example, `./knowledgeC.db`):
+  - `python3 scripts/make_sanitized_fixture.py --source knowledgeC.db --out tests/fixtures/knowledgeC.sanitized.db --max-rows 1500`
+- This writes a sanitized fixture DB at `tests/fixtures/knowledgeC.sanitized.db`.
+- The integration test `tests/sanitized_fixture_sync.rs` consumes this fixture.
+
+Notes:
+- If you see `Operation not permitted`, grant Full Disk Access to your terminal (or the executable running this command).
+- Fixture generation is intended as a one-time action; commit the generated fixture file for repeatable tests.
+
 ## Paths
 - Local DB: `~/.screenhistory.sqlite`
 - Source DB: `~/Library/Application Support/Knowledge/knowledgeC.db`
