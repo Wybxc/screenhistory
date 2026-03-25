@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use futures_util::TryStreamExt;
+use sqlx::{QueryBuilder, Sqlite};
 
 use crate::db;
 use crate::models::rows::KnowledgeUsageRow;
@@ -26,47 +27,12 @@ pub async fn sync_impl(knowledge_db_path: &Path, local_db_path: &Path) -> Result
     // Open Apple's Knowledge DB (RO).
     let mut knowledge = db::open_knowledge_ro(knowledge_db_path).await?;
 
-    // Base SELECT with explicit casts to keep decode types stable.
-    let base_select = r#"
-        SELECT
-            ZOBJECT.Z_PK AS event_id,
-            ZOBJECT.ZVALUESTRING AS app_name,
-            CAST((ZOBJECT.ZENDDATE - ZOBJECT.ZSTARTDATE) AS REAL) AS amount_seconds,
-            CAST((ZOBJECT.ZSTARTDATE + 978307200) AS INTEGER) AS start_time,
-            CAST((ZOBJECT.ZENDDATE + 978307200) AS INTEGER) AS end_time,
-            CAST((ZOBJECT.ZCREATIONDATE + 978307200) AS INTEGER) AS created_at,
-            ZOBJECT.ZSECONDSFROMGMT AS tz_offset,
-            COALESCE(ZSOURCE.ZDEVICEID, ZSYNCPEER.ZDEVICEID) AS device_id,
-            COALESCE(ZSYNCPEER.ZMODEL, ZSYNCPEER.ZRAPPORTID, ZSOURCE.ZSOURCEID) AS device_model
-        FROM ZOBJECT
-        LEFT JOIN ZSTRUCTUREDMETADATA ON ZOBJECT.ZSTRUCTUREDMETADATA = ZSTRUCTUREDMETADATA.Z_PK
-        LEFT JOIN ZSOURCE ON ZOBJECT.ZSOURCE = ZSOURCE.Z_PK
-        LEFT JOIN ZSYNCPEER ON (ZSOURCE.ZDEVICEID = ZSYNCPEER.ZDEVICEID OR ZSOURCE.ZSOURCEID = ZSYNCPEER.ZCLOUDID)
-        WHERE ZOBJECT.ZSTREAMNAME = '/app/usage'
-    "#;
-
-    let (sql, bind_event): (String, Option<i64>) = if let Some(eid) = last_event_id {
-        (
-            format!("{base_select}\nAND ZOBJECT.Z_PK > ?1\nORDER BY ZOBJECT.ZSTARTDATE ASC"),
-            Some(eid),
-        )
-    } else {
-        (
-            format!("{base_select}\nORDER BY ZOBJECT.ZSTARTDATE ASC"),
-            None,
-        )
-    };
+    let mut query = build_knowledge_select_query(last_event_id);
 
     let mut summary = SyncSummary::default();
     let mut tx = sqlx::Connection::begin(&mut local).await?;
 
-    let mut rows = if let Some(eid) = bind_event {
-        sqlx::query_as::<_, KnowledgeUsageRow>(&sql)
-            .bind(eid)
-            .fetch(&mut knowledge)
-    } else {
-        sqlx::query_as::<_, KnowledgeUsageRow>(&sql).fetch(&mut knowledge)
-    };
+    let mut rows = query.build_query_as::<KnowledgeUsageRow>().fetch(&mut knowledge);
 
     while let Some(rec) = rows.try_next().await? {
         summary.scanned += 1;
@@ -96,4 +62,34 @@ pub async fn sync_impl(knowledge_db_path: &Path, local_db_path: &Path) -> Result
 
     tx.commit().await?;
     Ok(summary)
+}
+
+fn build_knowledge_select_query(last_event_id: Option<i64>) -> QueryBuilder<'static, Sqlite> {
+    let mut query = QueryBuilder::<Sqlite>::new(
+        r#"
+        SELECT
+            ZOBJECT.Z_PK AS event_id,
+            ZOBJECT.ZVALUESTRING AS app_name,
+            CAST((ZOBJECT.ZENDDATE - ZOBJECT.ZSTARTDATE) AS REAL) AS amount_seconds,
+            CAST((ZOBJECT.ZSTARTDATE + 978307200) AS INTEGER) AS start_time,
+            CAST((ZOBJECT.ZENDDATE + 978307200) AS INTEGER) AS end_time,
+            CAST((ZOBJECT.ZCREATIONDATE + 978307200) AS INTEGER) AS created_at,
+            ZOBJECT.ZSECONDSFROMGMT AS tz_offset,
+            COALESCE(ZSOURCE.ZDEVICEID, ZSYNCPEER.ZDEVICEID) AS device_id,
+            COALESCE(ZSYNCPEER.ZMODEL, ZSYNCPEER.ZRAPPORTID, ZSOURCE.ZSOURCEID) AS device_model
+        FROM ZOBJECT
+        LEFT JOIN ZSTRUCTUREDMETADATA ON ZOBJECT.ZSTRUCTUREDMETADATA = ZSTRUCTUREDMETADATA.Z_PK
+        LEFT JOIN ZSOURCE ON ZOBJECT.ZSOURCE = ZSOURCE.Z_PK
+        LEFT JOIN ZSYNCPEER ON (ZSOURCE.ZDEVICEID = ZSYNCPEER.ZDEVICEID OR ZSOURCE.ZSOURCEID = ZSYNCPEER.ZCLOUDID)
+        WHERE ZOBJECT.ZSTREAMNAME = '/app/usage'
+        "#,
+    );
+
+    if let Some(eid) = last_event_id {
+        query.push(" AND ZOBJECT.Z_PK > ");
+        query.push_bind(eid);
+    }
+
+    query.push(" ORDER BY ZOBJECT.ZSTARTDATE ASC");
+    query
 }

@@ -4,6 +4,7 @@ use std::path::Path;
 use anyhow::Result;
 use csv::Writer;
 use futures_util::TryStreamExt;
+use sqlx::{QueryBuilder, Sqlite};
 
 use crate::db;
 use crate::models::rows::LocalUsageRow;
@@ -20,7 +21,7 @@ pub async fn export_csv_impl<W: Write>(
     out: &mut W,
 ) -> Result<()> {
     let mut conn = db::open_local_ro(local_db_path).await?;
-    let (sql, binds) = build_select(filters);
+    let mut q = build_select_query(filters);
 
     // Header aligned with UsageRecord JSON keys for consistency.
     let mut wtr = Writer::from_writer(out);
@@ -36,15 +37,7 @@ pub async fn export_csv_impl<W: Write>(
         "device_model",
     ])?;
 
-    let mut q = sqlx::query_as::<_, LocalUsageRow>(&sql);
-    for b in binds {
-        q = match b {
-            Param::I64(v) => q.bind(v),
-            Param::Str(s) => q.bind(s),
-        };
-    }
-
-    let mut rows = q.fetch(&mut conn);
+    let mut rows = q.build_query_as::<LocalUsageRow>().fetch(&mut conn);
     while let Some(row) = rows.try_next().await? {
         let rec: UsageRecord = row.into();
         wtr.write_record(&[
@@ -75,17 +68,8 @@ pub async fn export_json_impl<W: Write>(
     out: &mut W,
 ) -> Result<()> {
     let mut conn = db::open_local_ro(local_db_path).await?;
-    let (sql, binds) = build_select(filters);
-
-    let mut q = sqlx::query_as::<_, LocalUsageRow>(&sql);
-    for b in binds {
-        q = match b {
-            Param::I64(v) => q.bind(v),
-            Param::Str(s) => q.bind(s),
-        };
-    }
-
-    let mut rows = q.fetch(&mut conn);
+    let mut q = build_select_query(filters);
+    let mut rows = q.build_query_as::<LocalUsageRow>().fetch(&mut conn);
 
     // Stream as a JSON array without buffering everything in memory.
     out.write_all(b"[")?;
@@ -109,8 +93,8 @@ pub async fn export_json_impl<W: Write>(
 /// Filters:
 /// - from/to: inclusive range on end_time (epoch seconds)
 /// - app: exact match on app_name
-fn build_select(filters: &ExportFilters) -> (String, Vec<Param>) {
-    let mut sql = String::from(
+fn build_select_query(filters: &ExportFilters) -> QueryBuilder<'static, Sqlite> {
+    let mut query = QueryBuilder::<Sqlite>::new(
         r#"
         SELECT
             u.event_id,
@@ -125,37 +109,23 @@ fn build_select(filters: &ExportFilters) -> (String, Vec<Param>) {
         FROM usage AS u
         JOIN apps AS a ON a.id = u.app_id
         LEFT JOIN devices AS d ON d.id = u.device_id
+        WHERE 1 = 1
         "#,
     );
 
-    let mut clauses: Vec<&str> = Vec::new();
-    let mut binds: Vec<Param> = Vec::new();
-
     if let Some(from) = filters.from {
-        clauses.push("(u.start_time + u.amount) >= ?");
-        binds.push(Param::I64(from.unix_timestamp()));
+        query.push(" AND (u.start_time + u.amount) >= ");
+        query.push_bind(from.unix_timestamp());
     }
     if let Some(to) = filters.to {
-        clauses.push("(u.start_time + u.amount) <= ?");
-        binds.push(Param::I64(to.unix_timestamp()));
+        query.push(" AND (u.start_time + u.amount) <= ");
+        query.push_bind(to.unix_timestamp());
     }
     if let Some(app) = &filters.app {
-        clauses.push("a.name = ?");
-        binds.push(Param::Str(app.clone()));
+        query.push(" AND a.name = ");
+        query.push_bind(app.clone());
     }
 
-    if !clauses.is_empty() {
-        sql.push_str("WHERE ");
-        sql.push_str(&clauses.join(" AND "));
-        sql.push('\n');
-    }
-
-    sql.push_str("ORDER BY (u.start_time + u.amount) ASC\n");
-    (sql, binds)
-}
-
-/// Parameter wrapper for binding mixed types in order.
-enum Param {
-    I64(i64),
-    Str(String),
+    query.push(" ORDER BY (u.start_time + u.amount) ASC\n");
+    query
 }
