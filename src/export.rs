@@ -14,10 +14,10 @@ use crate::models::{ExportFilters, UsageRecord};
 /// - local_db_path: optionally override the default local DB location; if None, use the provided default path
 /// - filters: optional time/app filters
 /// - out: writer to stream CSV content into
-pub async fn export_csv_impl(
+pub async fn export_csv_impl<W: Write>(
     local_db_path: &Path,
     filters: &ExportFilters,
-    out: &mut dyn Write,
+    out: &mut W,
 ) -> Result<()> {
     let mut conn = db::open_local_ro(local_db_path).await?;
     let (sql, binds) = build_select(filters);
@@ -46,7 +46,7 @@ pub async fn export_csv_impl(
 
     let mut rows = q.fetch(&mut conn);
     while let Some(row) = rows.try_next().await? {
-        let rec = to_usage_record(&row);
+        let rec: UsageRecord = row.into();
         wtr.write_record(&[
             rec.event_id.to_string(),
             rec.app_name,
@@ -69,10 +69,10 @@ pub async fn export_csv_impl(
 /// - local_db_path: optionally override the default local DB location; if None, use the provided default path
 /// - filters: optional time/app filters
 /// - out: writer to stream JSON content into
-pub async fn export_json_impl(
+pub async fn export_json_impl<W: Write>(
     local_db_path: &Path,
     filters: &ExportFilters,
-    out: &mut dyn Write,
+    out: &mut W,
 ) -> Result<()> {
     let mut conn = db::open_local_ro(local_db_path).await?;
     let (sql, binds) = build_select(filters);
@@ -92,7 +92,7 @@ pub async fn export_json_impl(
     let mut first = true;
 
     while let Some(row) = rows.try_next().await? {
-        let rec = to_usage_record(&row);
+        let rec: UsageRecord = row.into();
         if !first {
             out.write_all(b",")?;
         }
@@ -158,22 +158,4 @@ fn build_select(filters: &ExportFilters) -> (String, Vec<Param>) {
 enum Param {
     I64(i64),
     Str(String),
-}
-
-/// Convert a LocalUsageRow into the normalized UsageRecord used for exports.
-///
-/// - Casts REAL timestamp columns to whole seconds (i64)
-/// - Renames `amount` to `amount` (seconds) for output symmetry across CSV/JSON
-fn to_usage_record(row: &LocalUsageRow) -> UsageRecord {
-    UsageRecord {
-        event_id: row.event_id,
-        app_name: row.app_name.clone(),
-        amount: row.duration_secs,
-        start_time: row.start_unix,
-        end_time: row.end_unix,
-        created_at: row.created_unix,
-        tz_offset: row.tz_offset_seconds,
-        device_id: row.device_id.clone(),
-        device_model: row.device_model.clone(),
-    }
 }

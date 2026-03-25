@@ -86,10 +86,10 @@ pub async fn last_sync(local_db_path: Option<&Path>) -> Result<Option<OffsetDate
 /// - `local_db_path`: optional override for the local DB path
 /// - `filters`: optional time/app filters
 /// - `out`: writer to stream CSV content into
-pub async fn export_csv(
+pub async fn export_csv<W: Write>(
     local_db_path: Option<&Path>,
     filters: &ExportFilters,
-    out: &mut dyn Write,
+    out: &mut W,
 ) -> Result<()> {
     let default_local = paths::default_local_db_path()?;
     export::export_csv_impl(local_db_path.unwrap_or(&default_local), filters, out).await
@@ -100,10 +100,10 @@ pub async fn export_csv(
 /// - `local_db_path`: optional override for the local DB path
 /// - `filters`: optional time/app filters
 /// - `out`: writer to stream JSON content into
-pub async fn export_json(
+pub async fn export_json<W: Write>(
     local_db_path: Option<&Path>,
     filters: &ExportFilters,
-    out: &mut dyn Write,
+    out: &mut W,
 ) -> Result<()> {
     let default_local = paths::default_local_db_path()?;
     export::export_json_impl(local_db_path.unwrap_or(&default_local), filters, out).await

@@ -59,3 +59,19 @@ pub struct UsageRecord {
     /// Model string of the originating device (from ZSYNCPEER.ZMODEL).
     pub device_model: String,
 }
+
+impl From<LocalUsageRow> for UsageRecord {
+    fn from(value: LocalUsageRow) -> Self {
+        Self {
+            event_id: value.event_id,
+            app_name: value.app_name,
+            amount: value.duration_secs,
+            start_time: value.start_unix,
+            end_time: value.end_unix,
+            created_at: value.created_unix,
+            tz_offset: value.tz_offset_seconds,
+            device_id: value.device_id,
+            device_model: value.device_model,
+        }
+    }
+}
