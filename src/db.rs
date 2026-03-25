@@ -3,7 +3,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteSynchronous};
-use sqlx::{Connection, Executor, Sqlite, SqliteConnection};
+use sqlx::{Connection, Sqlite, SqliteConnection, Transaction};
 
 /// Open (and create if needed) the local SQLite database for read/write.
 /// - Ensures parent directory exists
@@ -59,47 +59,75 @@ pub async fn max_local_event_id(conn: &mut SqliteConnection) -> Result<Option<i6
 
 /// Get the latest end_time from the local DB (as a second-based epoch).
 pub async fn max_local_end_time(conn: &mut SqliteConnection) -> Result<Option<i64>> {
-    let val: Option<i64> = sqlx::query_scalar::<_, Option<i64>>("SELECT MAX(end_time) FROM usage")
-        .fetch_one(conn)
-        .await?;
+    let val: Option<i64> =
+        sqlx::query_scalar::<_, Option<i64>>("SELECT MAX(start_time + amount) FROM usage")
+            .fetch_one(conn)
+            .await?;
     Ok(val)
 }
 
 /// Insert a usage row into the local DB, ignoring duplicates by event_id.
 /// Returns the number of rows affected (0 when ignored, 1 when inserted).
 #[allow(clippy::too_many_arguments)]
-pub async fn insert_usage<'a, E>(
-    exec: E,
+pub async fn insert_usage<'a>(
+    tx: &mut Transaction<'a, Sqlite>,
     event_id: i64,
     app_name: &str,
     amount: f64,
     start_time: i64,
-    end_time: i64,
     created_at: i64,
     tz_offset: i32,
     device_id: Option<&str>,
     device_model: &str,
-) -> Result<u64>
-where
-    E: Executor<'a, Database = Sqlite>,
-{
+) -> Result<u64> {
+    sqlx::query("INSERT OR IGNORE INTO apps(name) VALUES (?1)")
+        .bind(app_name)
+        .execute(&mut **tx)
+        .await?;
+
+    if let Some(external_id) = device_id {
+        sqlx::query("INSERT OR IGNORE INTO devices(external_id, model) VALUES (?1, ?2)")
+            .bind(external_id)
+            .bind(device_model)
+            .execute(&mut **tx)
+            .await?;
+
+        sqlx::query(
+            r#"
+            UPDATE devices
+            SET model = COALESCE(NULLIF(?2, ''), model)
+            WHERE external_id = ?1
+            "#,
+        )
+        .bind(external_id)
+        .bind(device_model)
+        .execute(&mut **tx)
+        .await?;
+    }
+
     let res = sqlx::query(
         r#"
         INSERT OR IGNORE INTO usage (
-            event_id, app_name, amount, start_time, end_time, created_at, tz_offset, device_id, device_model
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            event_id, app_id, amount, start_time, created_at, tz_offset, device_id
+        ) VALUES (
+            ?1,
+            (SELECT id FROM apps WHERE name = ?2),
+            CAST(?3 AS INTEGER),
+            ?4,
+            ?5,
+            ?6,
+            CASE WHEN ?7 IS NULL THEN NULL ELSE (SELECT id FROM devices WHERE external_id = ?7) END
+        )
         "#,
     )
     .bind(event_id)
     .bind(app_name)
     .bind(amount)
     .bind(start_time)
-    .bind(end_time)
     .bind(created_at)
     .bind(tz_offset)
     .bind(device_id)
-    .bind(device_model)
-    .execute(exec)
+    .execute(&mut **tx)
     .await?;
 
     Ok(res.rows_affected())

@@ -11,9 +11,9 @@ use time::OffsetDateTime;
 /// - event_id            (ZOBJECT.Z_PK)
 /// - app_name            (ZOBJECT.ZVALUESTRING)
 /// - amount_seconds      (CAST(ZOBJECT.ZENDDATE - ZOBJECT.ZSTARTDATE AS REAL))
-/// - start_time          (CAST(ZOBJECT.ZSTARTDATE + 978307200 AS REAL))
-/// - end_time            (CAST(ZOBJECT.ZENDDATE + 978307200 AS REAL))
-/// - created_at          (CAST(ZOBJECT.ZCREATIONDATE + 978307200 AS REAL))
+/// - start_time          (CAST(ZOBJECT.ZSTARTDATE + 978307200 AS INTEGER))
+/// - end_time            (CAST(ZOBJECT.ZENDDATE + 978307200 AS INTEGER))
+/// - created_at          (CAST(ZOBJECT.ZCREATIONDATE + 978307200 AS INTEGER))
 /// - tz_offset           (ZOBJECT.ZSECONDSFROMGMT)           -- nullable
 /// - device_id           (ZSOURCE.ZDEVICEID)                 -- nullable
 /// - device_model        (ZSYNCPEER.ZMODEL)                  -- nullable
@@ -30,17 +30,17 @@ pub struct KnowledgeUsageRow {
     #[sqlx(rename = "amount_seconds")]
     pub duration_secs: f64,
 
-    /// Start time as Unix epoch seconds (REAL). Converted from Cocoa epoch in the query.
+    /// Start time as Unix epoch seconds. Converted from Cocoa epoch in the query.
     #[sqlx(rename = "start_time")]
-    pub start_unix: f64,
+    pub start_unix: i64,
 
-    /// End time as Unix epoch seconds (REAL). Converted from Cocoa epoch in the query.
+    /// End time as Unix epoch seconds. Converted from Cocoa epoch in the query.
     #[sqlx(rename = "end_time")]
-    pub end_unix: f64,
+    pub end_unix: i64,
 
-    /// Creation time as Unix epoch seconds (REAL). Converted from Cocoa epoch in the query.
+    /// Creation time as Unix epoch seconds. Converted from Cocoa epoch in the query.
     #[sqlx(rename = "created_at")]
-    pub created_unix: f64,
+    pub created_unix: i64,
 
     /// Seconds offset from GMT for the event, if present (ZOBJECT.ZSECONDSFROMGMT).
     #[sqlx(rename = "tz_offset")]
@@ -56,17 +56,17 @@ pub struct KnowledgeUsageRow {
 impl KnowledgeUsageRow {
     /// Start time as whole seconds since Unix epoch.
     pub fn start_ts(&self) -> i64 {
-        self.start_unix as i64
+        self.start_unix
     }
 
     /// End time as whole seconds since Unix epoch.
     pub fn end_ts(&self) -> i64 {
-        self.end_unix as i64
+        self.end_unix
     }
 
     /// Creation time as whole seconds since Unix epoch.
     pub fn created_ts(&self) -> i64 {
-        self.created_unix as i64
+        self.created_unix
     }
 
     /// Start time as OffsetDateTime (None if out of range).
@@ -116,14 +116,12 @@ impl KnowledgeUsageRow {
 /// Schema (created via migration):
 ///   CREATE TABLE usage (
 ///       event_id     INTEGER PRIMARY KEY,
-///       app_name     TEXT NOT NULL,
-///       amount       REAL NOT NULL,        -- duration in seconds
-///       start_time   REAL NOT NULL,        -- epoch seconds
-///       end_time     REAL NOT NULL,        -- epoch seconds
-///       created_at   REAL NOT NULL,        -- epoch seconds
+///       app_id       INTEGER NOT NULL,
+///       amount       INTEGER NOT NULL,     -- duration in seconds
+///       start_time   INTEGER NOT NULL,     -- epoch seconds
+///       created_at   INTEGER NOT NULL,     -- epoch seconds
 ///       tz_offset    INTEGER NOT NULL,     -- seconds from GMT
-///       device_id    TEXT NULL,
-///       device_model TEXT NOT NULL
+///       device_id    INTEGER NULL
 ///   );
 ///
 /// This struct maps the schema to human‑friendly field names while preserving
@@ -138,19 +136,19 @@ pub struct LocalUsageRow {
 
     /// Duration in seconds as stored in the `amount` column.
     #[sqlx(rename = "amount")]
-    pub duration_secs: f64,
+    pub duration_secs: i64,
 
-    /// Start time as Unix epoch seconds (REAL).
+    /// Start time as Unix epoch seconds.
     #[sqlx(rename = "start_time")]
-    pub start_unix: f64,
+    pub start_unix: i64,
 
-    /// End time as Unix epoch seconds (REAL).
+    /// End time as Unix epoch seconds (computed in SELECT as start_time + amount).
     #[sqlx(rename = "end_time")]
-    pub end_unix: f64,
+    pub end_unix: i64,
 
-    /// Creation time as Unix epoch seconds (REAL).
+    /// Creation time as Unix epoch seconds.
     #[sqlx(rename = "created_at")]
-    pub created_unix: f64,
+    pub created_unix: i64,
 
     /// Seconds offset from GMT stored in the `tz_offset` column.
     #[sqlx(rename = "tz_offset")]
@@ -166,17 +164,17 @@ pub struct LocalUsageRow {
 impl LocalUsageRow {
     /// Start time as whole seconds since Unix epoch.
     pub fn start_ts(&self) -> i64 {
-        self.start_unix as i64
+        self.start_unix
     }
 
     /// End time as whole seconds since Unix epoch.
     pub fn end_ts(&self) -> i64 {
-        self.end_unix as i64
+        self.end_unix
     }
 
     /// Creation time as whole seconds since Unix epoch.
     pub fn created_ts(&self) -> i64 {
-        self.created_unix as i64
+        self.created_unix
     }
 
     /// Start time as OffsetDateTime (None if out of range).

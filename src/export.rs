@@ -113,8 +113,18 @@ fn build_select(filters: &ExportFilters) -> (String, Vec<Param>) {
     let mut sql = String::from(
         r#"
         SELECT
-            event_id, app_name, amount, start_time, end_time, created_at, tz_offset, device_id, device_model
-        FROM usage
+            u.event_id,
+            a.name AS app_name,
+            u.amount,
+            u.start_time,
+            (u.start_time + u.amount) AS end_time,
+            u.created_at,
+            u.tz_offset,
+            d.external_id AS device_id,
+            COALESCE(d.model, '') AS device_model
+        FROM usage AS u
+        JOIN apps AS a ON a.id = u.app_id
+        LEFT JOIN devices AS d ON d.id = u.device_id
         "#,
     );
 
@@ -122,15 +132,15 @@ fn build_select(filters: &ExportFilters) -> (String, Vec<Param>) {
     let mut binds: Vec<Param> = Vec::new();
 
     if let Some(from) = filters.from {
-        clauses.push("end_time >= ?");
+        clauses.push("(u.start_time + u.amount) >= ?");
         binds.push(Param::I64(from.unix_timestamp()));
     }
     if let Some(to) = filters.to {
-        clauses.push("end_time <= ?");
+        clauses.push("(u.start_time + u.amount) <= ?");
         binds.push(Param::I64(to.unix_timestamp()));
     }
     if let Some(app) = &filters.app {
-        clauses.push("app_name = ?");
+        clauses.push("a.name = ?");
         binds.push(Param::Str(app.clone()));
     }
 
@@ -140,7 +150,7 @@ fn build_select(filters: &ExportFilters) -> (String, Vec<Param>) {
         sql.push('\n');
     }
 
-    sql.push_str("ORDER BY end_time ASC\n");
+    sql.push_str("ORDER BY (u.start_time + u.amount) ASC\n");
     (sql, binds)
 }
 
@@ -159,9 +169,9 @@ fn to_usage_record(row: &LocalUsageRow) -> UsageRecord {
         event_id: row.event_id,
         app_name: row.app_name.clone(),
         amount: row.duration_secs,
-        start_time: row.start_unix as i64,
-        end_time: row.end_unix as i64,
-        created_at: row.created_unix as i64,
+        start_time: row.start_unix,
+        end_time: row.end_unix,
+        created_at: row.created_unix,
         tz_offset: row.tz_offset_seconds,
         device_id: row.device_id.clone(),
         device_model: row.device_model.clone(),

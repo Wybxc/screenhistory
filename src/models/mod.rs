@@ -45,7 +45,7 @@ pub struct UsageRecord {
     /// Application identifier or name (from ZOBJECT.ZVALUESTRING).
     pub app_name: String,
     /// Duration in seconds for the usage interval.
-    pub amount: f64,
+    pub amount: i64,
     /// Start time (epoch seconds).
     pub start_time: i64,
     /// End time (epoch seconds).
