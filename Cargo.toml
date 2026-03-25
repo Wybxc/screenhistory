@@ -10,12 +10,12 @@ readme = "README.md"
 [dependencies]
 # SQLite (sqlx, async)
 sqlx = { version = "0.8.6", features = [
-    "runtime-tokio-rustls",
+    "runtime-tokio",
     "sqlite",
     "macros",
     "migrate",
 ] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt", "macros"] }
 
 # Time handling (epoch seconds in DB; format/parse on edges)
 time = { version = "0.3", features = [

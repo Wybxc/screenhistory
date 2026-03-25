@@ -348,7 +348,7 @@ fn run_launchctl(args: &[&str]) -> Result<()> {
     Ok(())
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
     // Initialize logging if RUST_LOG is set; otherwise keep quiet by default.
     let _ =
