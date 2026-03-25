@@ -67,6 +67,7 @@ pub async fn max_local_end_time(conn: &mut SqliteConnection) -> Result<Option<i6
 
 /// Insert a usage row into the local DB, ignoring duplicates by event_id.
 /// Returns the number of rows affected (0 when ignored, 1 when inserted).
+#[allow(clippy::too_many_arguments)]
 pub async fn insert_usage<'a, E>(
     exec: E,
     event_id: i64,

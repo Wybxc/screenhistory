@@ -8,7 +8,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use time::format_description::well_known::Rfc3339;
 use time::{format_description, Date, OffsetDateTime, Time};
 
-use screenhistory_core as core;
+use screenhistory as core;
 
 const DEFAULT_LABEL: &str = "com.mikkelam.screenhistory";
 
