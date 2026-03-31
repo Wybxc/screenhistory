@@ -26,15 +26,6 @@ cargo install --path .
 
 The binary will be installed to `~/.cargo/bin/screenhistory`.
 
-### With Homebrew (optional)
-
-If you have a custom Homebrew tap set up:
-
-```bash
-brew tap Wybxc/screenhistory
-brew install screenhistory
-```
-
 ## Scheduling (launchd)
 
 ### Configuration
