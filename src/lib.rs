@@ -22,6 +22,7 @@ mod export;
 mod ingest;
 pub mod models;
 pub mod paths;
+pub mod viz;
 
 pub use models::rows::{KnowledgeUsageRow, LocalUsageRow};
 pub use models::{ExportFilters, SyncSummary, UsageRecord};

@@ -10,6 +10,8 @@ use time::{format_description, Date, OffsetDateTime, Time};
 
 use screenhistory as core;
 
+mod tui;
+
 const DEFAULT_LABEL: &str = "com.mikkelam.screenhistory";
 
 #[derive(Parser, Debug)]
@@ -33,6 +35,10 @@ enum Commands {
     /// Manage launchd scheduling for periodic sync
     #[command(alias = "sch")]
     Schedule(ScheduleArgs),
+
+    /// Visualize activity history with interactive TUI
+    #[command(alias = "viz")]
+    Visualize(VisualizeArgs),
 }
 
 #[derive(Args, Debug)]
@@ -122,6 +128,17 @@ struct InstallArgs {
     /// Log file path (defaults to ~/Library/Logs/screenhistory/sync.log)
     #[arg(long)]
     log_file: Option<PathBuf>,
+}
+
+#[derive(Args, Debug)]
+struct VisualizeArgs {
+    /// Path to the local history DB (defaults to ~/.screenhistory.sqlite)
+    #[arg(long)]
+    local_db: Option<PathBuf>,
+
+    /// Start date for visualization (YYYY-MM-DD format, defaults to today)
+    #[arg(long)]
+    date: Option<String>,
 }
 
 async fn cmd_schedule(args: ScheduleArgs) -> Result<()> {
@@ -359,6 +376,7 @@ async fn main() -> ExitCode {
         Commands::Sync(args) => cmd_sync(args).await,
         Commands::Export(args) => cmd_export(args).await,
         Commands::Schedule(args) => cmd_schedule(args).await,
+        Commands::Visualize(args) => cmd_visualize(args).await,
     };
 
     match result {
@@ -511,4 +529,23 @@ fn likely_permission_error(e: &anyhow::Error) -> bool {
         || s.contains("denied")
         || s.contains("open")
         || s.contains("Operation not permitted")
+}
+
+async fn cmd_visualize(args: VisualizeArgs) -> Result<()> {
+    // Resolve local DB path
+    let default_local = core::default_local_db_path()?;
+    let local_db_path = args.local_db.as_deref().unwrap_or(&default_local);
+
+    // Parse date or default to today
+    let target_date = if let Some(date_str) = args.date.as_deref() {
+        Date::parse(date_str, &format_description::parse("[year]-[month]-[day]")?)
+            .context("Invalid date format; expected YYYY-MM-DD")?
+    } else {
+        OffsetDateTime::now_utc().date()
+    };
+
+    // Run the TUI
+    tui::run_tui(local_db_path, target_date).await?;
+
+    Ok(())
 }
